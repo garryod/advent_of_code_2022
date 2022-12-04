@@ -5,46 +5,47 @@ use std::{
     path::Path,
 };
 
+use itertools::Itertools;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let (best_idx, best_count) = find_best_elf(&args[0]);
-    println!(
-        "Elf {} carried the most calories, with {}",
-        best_idx, best_count
-    )
+    let elf_calories = aggregate_elf_calories(&args[1]);
+    let most_calories = max_calories(&elf_calories);
+    let max3_calories: u32 = max3_calories(&elf_calories);
+    println!("Most calories: {most_calories}");
+    println!("Max3 calories: {max3_calories}")
 }
 
-fn find_best_elf<P: AsRef<Path>>(path: P) -> (usize, u32) {
+fn aggregate_elf_calories<P: AsRef<Path>>(path: P) -> Vec<u32> {
     let file = File::open(path).unwrap();
-    let buffered_reader = BufReader::new(file);
-    let (_, _, best_idx, best_count) = buffered_reader.lines().into_iter().fold(
-        (1_usize, 0_u32, 0_usize, 0_u32),
-        |(current_idx, current_count, best_idx, best_count), line| match line.unwrap().as_str() {
-            "" => {
-                if current_count > best_count {
-                    println!("New best: {} with {}", current_idx, current_count);
-                    (current_idx + 1, 0, current_idx, current_count)
-                } else {
-                    (current_idx + 1, 0, best_idx, best_count)
-                }
-            }
-            str => (
-                current_idx,
-                current_count + str.parse::<u32>().unwrap(),
-                best_idx,
-                best_count,
-            ),
-        },
-    );
-    (best_idx, best_count)
+    let lines = BufReader::new(file).lines().map(|line| line.unwrap());
+    lines
+        .group_by(|line| line == "")
+        .into_iter()
+        .filter(|(empty, _)| !*empty)
+        .map(|(_, group)| group.fold(0_u32, |acc, line| acc + line.parse::<u32>().unwrap()))
+        .collect()
+}
+
+fn max_calories(elf_calories: &Vec<u32>) -> u32 {
+    *elf_calories.iter().max().unwrap()
+}
+
+fn max3_calories(elf_calories: &Vec<u32>) -> u32 {
+    elf_calories.iter().sorted().rev().take(3).sum()
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::find_best_elf;
+    use super::*;
 
     #[test]
-    fn example() {
-        assert_eq!((4, 24000), find_best_elf("example.txt"));
+    fn example_1() {
+        assert_eq!(24000, max_calories(&aggregate_elf_calories("example.txt")));
+    }
+
+    #[test]
+    fn example_2() {
+        assert_eq!(45000, max3_calories(&aggregate_elf_calories("example.txt")));
     }
 }
