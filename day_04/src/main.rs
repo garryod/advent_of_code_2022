@@ -5,8 +5,6 @@ use std::{
     path::Path,
 };
 
-use itertools::Itertools;
-
 fn main() {
     let args: Vec<String> = env::args().collect();
     let num_overlapping = num_overlapping_assignments(&args[1]);
@@ -21,19 +19,21 @@ fn num_overlapping_assignments<P: AsRef<Path>>(path: P) -> usize {
         .into_iter()
         .map(|line| {
             let line = line.unwrap();
-            let bounds = line
+            let bounds: [[u32; 2]; 2] = line
                 .split(",")
-                .map(|assignment| {
+                .map(|assignment| -> [u32; 2] {
                     assignment
                         .split("-")
                         .map(|section| section.parse::<u32>().unwrap())
-                        .collect_tuple::<(u32, u32)>()
+                        .collect::<Vec<_>>()
+                        .try_into()
                         .unwrap()
                 })
-                .collect_tuple::<(_, _)>()
+                .collect::<Vec<_>>()
+                .try_into()
                 .unwrap();
-            (bounds.0 .0 <= bounds.1 .0 && bounds.0 .1 >= bounds.1 .1)
-                || (bounds.0 .0 >= bounds.1 .0 && bounds.0 .1 <= bounds.1 .1)
+            (bounds[0][0] <= bounds[1][0] && bounds[0][1] >= bounds[1][1])
+                || (bounds[0][0] >= bounds[1][0] && bounds[0][1] <= bounds[1][1])
         })
         .filter(|overlapping| *overlapping)
         .count()
