@@ -7,47 +7,34 @@ use std::{
 
 use itertools::{Either, Itertools};
 
-enum CraneMovers {
-    CraneMover9000,
-    CraneMover9001,
+type Crane = Box<dyn Fn(&mut Vec<Vec<char>>, usize, usize, usize) -> ()>;
+
+fn move_crates_cm9000(stacks: &mut Vec<Vec<char>>, from: usize, to: usize, count: usize) {
+    (0..count).for_each(|_| {
+        let removed = stacks[from].pop().unwrap();
+        stacks[to].push(removed);
+    })
 }
-
-impl CraneMovers {
-    fn move_crates_9000<T>(stacks: &mut Vec<Vec<T>>, from: usize, to: usize, count: usize) {
-        (0..count).for_each(|_| {
-            let removed = stacks[from].pop().unwrap();
-            stacks[to].push(removed);
-        })
-    }
-
-    fn move_crates_9001<T>(stacks: &mut Vec<Vec<T>>, from: usize, to: usize, count: usize) {
-        let len_from = stacks[from].len();
-        let mut removed = stacks[from]
-            .drain(len_from - count..len_from)
-            .collect::<Vec<T>>();
-        stacks[to].append(&mut removed)
-    }
-
-    fn move_crates<T>(&self, stacks: &mut Vec<Vec<T>>, from: usize, to: usize, count: usize) {
-        match self {
-            CraneMovers::CraneMover9000 => CraneMovers::move_crates_9000(stacks, from, to, count),
-            CraneMovers::CraneMover9001 => CraneMovers::move_crates_9001(stacks, from, to, count),
-        }
-    }
+fn move_crates_cm9001(stacks: &mut Vec<Vec<char>>, from: usize, to: usize, count: usize) {
+    let len_from = stacks[from].len();
+    let mut removed = stacks[from]
+        .drain(len_from - count..len_from)
+        .collect::<Vec<_>>();
+    stacks[to].append(&mut removed)
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let crane_mover = match args[2].as_str() {
-        "9000" => CraneMovers::CraneMover9000,
-        "9001" => CraneMovers::CraneMover9001,
+    let crane: Crane = match args[2].as_str() {
+        "9000" => Box::new(move_crates_cm9000),
+        "9001" => Box::new(move_crates_cm9001),
         _ => panic!("Selected unknown CraneMover type"),
     };
-    let top_crates = top_crates(&args[1], crane_mover);
+    let top_crates = top_crates(&args[1], crane);
     println!("Top crates after moves were: {top_crates}");
 }
 
-fn top_crates(path: impl AsRef<Path>, crane_mover: CraneMovers) -> String {
+fn top_crates(path: impl AsRef<Path>, crane_mover: Crane) -> String {
     let file = File::open(path).unwrap();
     let lines = BufReader::new(file)
         .lines()
@@ -101,7 +88,7 @@ fn parse_starting<L: IntoIterator<Item = String>>(lines: L) -> Vec<Vec<char>> {
 fn mutate_arrangement(
     arrangement: &mut Vec<Vec<char>>,
     lines: impl IntoIterator<Item = String>,
-    crane_mover: CraneMovers,
+    crane: Crane,
 ) -> () {
     lines.into_iter().for_each(|line| {
         let (count, from, to) = line
@@ -111,7 +98,7 @@ fn mutate_arrangement(
             .map(|num| num.parse::<usize>().unwrap())
             .collect_tuple()
             .unwrap();
-        crane_mover.move_crates(arrangement, from - 1, to - 1, count);
+        crane(arrangement, from - 1, to - 1, count);
     })
 }
 
@@ -123,7 +110,7 @@ mod tests {
     fn example_1() {
         assert_eq!(
             "CMZ",
-            top_crates("example.txt", CraneMovers::CraneMover9000)
+            top_crates("example.txt", Box::new(move_crates_cm9000))
         )
     }
 
@@ -131,7 +118,7 @@ mod tests {
     fn example_2() {
         assert_eq!(
             "MCD",
-            top_crates("example.txt", CraneMovers::CraneMover9001)
+            top_crates("example.txt", Box::new(move_crates_cm9001))
         )
     }
 }
